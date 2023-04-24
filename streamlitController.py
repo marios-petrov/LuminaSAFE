@@ -96,11 +96,11 @@ with title_column:
         unsafe_allow_html=True,
     )
 
-# Create custom tabs using bigger buttons in a single row
-tabs = ["Overview", "Alerts", "Usage Trends", "Resources", "Hot Topics & NLP"]
+# Tabs
+tabs = ["Overview", "Alerts", "Usage Trends", "Hot Topics & NLP", "Resources"]
 selected_tab = st.session_state.get("selected_tab", "Overview")
 
-# Add empty columns on both sides of the buttons to center them
+# Add empty columns on both sides of the buttons/tabs to center them
 left_space, *columns, right_space = st.columns([1] + [2]*len(tabs) + [1])
 button_style = "style='width: 100%; height: 50px; margin-bottom: 10px;'"
 
