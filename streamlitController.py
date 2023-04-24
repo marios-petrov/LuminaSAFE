@@ -9,9 +9,6 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from collections import Counter
 from wordcloud import WordCloud
 
-nltk.download('punkt')
-nltk.download('stopwords')
-
 # Connecting to the database
 def fetch_conversation_data(conn):
     conversation_data = []
@@ -33,6 +30,23 @@ DATABASE_NAME = "phone_calls.db"
 conn = sqlite3.connect(DATABASE_NAME, check_same_thread=False)
 conversation_data = fetch_conversation_data(conn)
 
+def preprocess_text(text):
+    # Lowercase the text
+    text = text.lower()
+
+    # Tokenize words
+    words = word_tokenize(text)
+
+    # Remove punctuation
+    words = [word for word in words if word.isalnum()]
+
+    # Remove stopwords
+    stop_words = set(stopwords.words('english'))
+    stop_words.update(["user", "jupiter"])  # Add "user" and "jupiter" to the list of stopwords
+    words = [word for word in words if word not in stop_words]
+
+    return words
+
 def count_phone_numbers(conversation_history):
     phone_number_pattern = r"\d{3}-\d{3}-\d{4}"
     phone_numbers = re.findall(phone_number_pattern, conversation_history)
@@ -51,29 +65,12 @@ def plot_phone_number_counts(phone_number_counts):
     counts = list(phone_number_counts.values())
 
     index = np.arange(len(phone_numbers))
+    plt.figure(figsize=(6, 4))
     plt.bar(index, counts)
     plt.xlabel('Phone Numbers', fontsize=12)
     plt.ylabel('Counts', fontsize=12)
     plt.xticks(index, phone_numbers, fontsize=10, rotation=30)
-    plt.title('Phone Numbers Mentioned in the Conversation')
     return plt
-
-def preprocess_text(text):
-    # Lowercase the text
-    text = text.lower()
-
-    # Tokenize words
-    words = word_tokenize(text)
-
-    # Remove punctuation
-    words = [word for word in words if word.isalnum()]
-
-    # Remove stopwords
-    stop_words = set(stopwords.words('english'))
-    stop_words.update(["user", "jupiter"])  # Add "user" and "jupiter" to the list of stopwords
-    words = [word for word in words if word not in stop_words]
-
-    return words
 
 def plot_word_frequency(words, top_n=10):
     word_freq = Counter(words)
@@ -81,12 +78,13 @@ def plot_word_frequency(words, top_n=10):
 
     words, frequencies = zip(*common_words)
     index = np.arange(len(words))
+    plt.figure(figsize=(5.8, 4))
     plt.bar(index, frequencies)
     plt.xlabel('Words', fontsize=12)
     plt.ylabel('Frequency', fontsize=12)
     plt.xticks(index, words, fontsize=10, rotation=30)
-    plt.title(f'Top {top_n} Most Frequent Words in the Conversation')
     return plt
+
 
 
 # Page/Title Setup
@@ -159,21 +157,32 @@ elif selected_tab == "Hot Topics & NLP":
     # Display the conversation history and perform NLP analysis
     if selected_conversation_history:
         st.subheader("Conversation History")
-        st.write(selected_conversation_history)
+        formatted_conversation = selected_conversation_history.replace("User:", "\nUser:").replace("AI:", "\nAI:")
+        st.write(formatted_conversation)
+
+        # Create two columns to display the plots side by side
+        col1, col2 = st.columns(2)
 
         # Perform NLP analysis on the conversation history
-        st.subheader("Phone Number Analysis")
         phone_number_counts = count_phone_numbers(selected_conversation_history)
 
-        # Plot the phone number counts
-        plt = plot_phone_number_counts(phone_number_counts)
-        st.pyplot(plt)
+        with col1:
+            # Add the title using st.markdown() with custom HTML
+            st.markdown(
+                "<h4 style='font-size: 24px; font-family: sans-serif; color: #ffffff;'>Phone Numbers Mentioned in the Conversation</h4>",
+                unsafe_allow_html=True)
+            plt = plot_phone_number_counts(phone_number_counts)
+            st.pyplot(plt)
 
-        # Preprocess the text and plot word frequency
-        st.subheader("Word Frequency Analysis")
-        words = preprocess_text(selected_conversation_history)
-        plt = plot_word_frequency(words)
-        st.pyplot(plt)
+        with col2:
+            # Add the title using st.markdown() with custom HTML
+            top_n = 10
+            st.markdown(
+                f"<h4 style='font-size: 24px; font-family: sans-serif; color: #ffffff;'>Top {top_n} Most Frequent Words in the Conversation</h4>",
+                unsafe_allow_html=True)
+            words = preprocess_text(selected_conversation_history)
+            plt = plot_word_frequency(words)
+            st.pyplot(plt)
 
 
 
