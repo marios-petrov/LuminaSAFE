@@ -4,6 +4,7 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 import nltk
+import datetime
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 from collections import Counter
@@ -25,6 +26,38 @@ def fetch_conversation_data(conn):
         print(e)
 
     return conversation_data
+
+def fetch_call_statistics(conn):
+    today = datetime.date.today()
+    one_week_ago = today - datetime.timedelta(days=7)
+
+    c = conn.cursor()
+
+    # Get the number of alerts today
+    c.execute("SELECT COUNT(*) FROM calls WHERE date(conversation_history) = ?", (today,))
+    alerts_today = c.fetchone()[0]
+
+    # Get the total calls this week
+    c.execute("SELECT COUNT(*) FROM calls WHERE date(conversation_history) BETWEEN ? AND ?", (one_week_ago, today))
+    calls_this_week = c.fetchone()[0]
+
+    return alerts_today, calls_this_week
+
+def fetch_hourly_call_data(conn):
+    c = conn.cursor()
+    c.execute("SELECT strftime('%H', conversation_history) AS hour, COUNT(*) AS count FROM calls GROUP BY hour")
+    hourly_call_data = c.fetchall()
+
+    daily_calls_per_hour = [0] * 24
+    max_calls_in_an_hour = 0
+
+    for hour, count in hourly_call_data:
+        if hour is not None:
+            hour = int(hour)
+            daily_calls_per_hour[hour] = count
+            max_calls_in_an_hour = max(max_calls_in_an_hour, count)
+
+    return daily_calls_per_hour, max_calls_in_an_hour
 
 DATABASE_NAME = "phone_calls.db"
 conn = sqlite3.connect(DATABASE_NAME, check_same_thread=False)
@@ -85,8 +118,6 @@ def plot_word_frequency(words, top_n=10):
     plt.xticks(index, words, fontsize=10, rotation=30)
     return plt
 
-
-
 # Page/Title Setup
 st.set_page_config(page_title="LuminaSAFE", layout="wide")
 left_column, title_column, right_column = st.columns([1, 4, 1])
@@ -115,13 +146,25 @@ st.write("\n")
 # Display content based on the selected tab
 if selected_tab == "Overview":
     st.header("Overview")
-    radio_options = ["Technical Overview", "Scientific Overview"]
-    selected_option = st.radio("Select an option:", radio_options)
+    alerts_today, calls_this_week = fetch_call_statistics(conn)
+    table_html = f"""
+        <table>
+            <tr>
+                <th>Number of alerts today</th>
+                <td>{alerts_today}</td>
+            </tr>
+            <tr>
+                <th>Total calls this week</th>
+                <td>{calls_this_week}</td>
+            </tr>
+        </table>
+        """
 
-    if selected_option == "Technical Overview":
-        st.write("Technical Overview content goes here.")
-    elif selected_option == "Scientific Overview":
-        st.write("Scientific Overview content goes here.")
+    # Display the table
+    st.write(table_html, unsafe_allow_html=True)
+    daily_calls_per_hour, max_calls_in_an_hour = fetch_hourly_call_data(conn)
+    st.write(f"Daily calls per hour: {daily_calls_per_hour}")
+    st.write(f"Max calls in an hour: {max_calls_in_an_hour}")
 
 elif selected_tab == "Alerts":
     st.header("Alerts")

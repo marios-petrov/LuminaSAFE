@@ -12,7 +12,6 @@ t5_model = T5ForConditionalGeneration.from_pretrained('t5-small')
 # Load the SBERT model
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v1')
 
-
 def call_chatgpt_api(text, conversation_history):
     model_engine = "text-davinci-002"
     prompt = f"{conversation_history}\nUser: {text}\nAI:"

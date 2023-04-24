@@ -48,7 +48,7 @@ def sms_process():
         if total_tokens > TOKEN_LIMIT:
             # Summarize to shorten
             conversation_history = summarize_text(conversation_history)
-        
+
         chatgpt_response = call_chatgpt_api(body, conversation_history)
 
         updated_conversation_history = f"{conversation_history}\nUser: {body}\nAI: {chatgpt_response}"
@@ -66,7 +66,6 @@ def sms_process():
 
     return Response(status=200)
     # print all values
-
 
 @app.route('/process_speech', methods=['POST'])
 def process_speech():
