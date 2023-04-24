@@ -115,8 +115,8 @@ st.write("\n")
 # Display content based on the selected tab
 if selected_tab == "Overview":
     st.header("Overview")
-    dropdown_options = ["Technical Overview", "Scientific Overview"]
-    selected_option = st.selectbox("Select an option:", dropdown_options)
+    radio_options = ["Technical Overview", "Scientific Overview"]
+    selected_option = st.radio("Select an option:", radio_options)
 
     if selected_option == "Technical Overview":
         st.write("Technical Overview content goes here.")
