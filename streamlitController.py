@@ -34,7 +34,7 @@ conn = sqlite3.connect(DATABASE_NAME, check_same_thread=False)
 conversation_data = fetch_conversation_data(conn)
 
 def count_phone_numbers(conversation_history):
-    phone_number_pattern = r"\+?\d{1,4}?[-.]\d{1,4}[-.]\d{1,4}[-.]\d{1,4}"
+    phone_number_pattern = r"\d{3}-\d{3}-\d{4}"
     phone_numbers = re.findall(phone_number_pattern, conversation_history)
 
     phone_number_counts = {}
