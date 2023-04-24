@@ -36,6 +36,38 @@ def answer_call():
 
     return Response(str(response), content_type='text/xml')
 
+@app.route('/sms', methods=['POST'])
+def sms_process():
+    body = request.values.get('Body', None)
+    from_number = request.values.get('From', None)
+
+    if body and from_number:
+        conversation_history = conversations.get(from_number, "")
+
+        total_tokens = len(conversation_history) + len(body)
+        if total_tokens > TOKEN_LIMIT:
+            # Summarize to shorten
+            conversation_history = summarize_text(conversation_history)
+        
+        chatgpt_response = call_chatgpt_api(body, conversation_history)
+
+        updated_conversation_history = f"{conversation_history}\nUser: {body}\nAI: {chatgpt_response}"
+        conversations[from_number] = updated_conversation_history
+
+        conversation_vector = get_text_embedding(updated_conversation_history)
+
+        update_or_insert_call(connection, from_number, updated_conversation_history, conversation_vector.tobytes())
+
+        twilio_client.messages.create(
+            body=chatgpt_response,
+            from_=TWILIO_PHONE_NUMBER,
+            to=from_number
+        )
+
+    return Response(status=200)
+    # print all values
+
+
 @app.route('/process_speech', methods=['POST'])
 def process_speech():
     response = VoiceResponse()
