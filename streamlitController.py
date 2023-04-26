@@ -118,6 +118,14 @@ def plot_word_frequency(words, top_n=10):
     plt.xticks(index, words, fontsize=10, rotation=30)
     return plt
 
+def generate_word_cloud(words, title):
+    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(" ".join(words))
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.title(title, fontsize=24)
+    return plt
+
 # Page/Title Setup
 st.set_page_config(page_title="LuminaSAFE", layout="wide")
 left_column, title_column, right_column = st.columns([1, 4, 1])
@@ -146,25 +154,64 @@ st.write("\n")
 # Display content based on the selected tab
 if selected_tab == "Overview":
     st.header("Overview")
+
+    # Calculate the total number of calls
+    total_calls = len(conversation_data)
+
+    # Display the total number of calls as a subheader
+    st.subheader(f"Total Calls: {total_calls}")
+
+    st.subheader("Daily/Weekly Metrics")
     alerts_today, calls_this_week = fetch_call_statistics(conn)
-    table_html = f"""
-        <table>
-            <tr>
+
+    # Display the table for daily and weekly metrics
+    table_style = "font-size: 24px; border: 2px solid white; border-collapse: collapse;"
+    table_row_style = "border: 1.5px solid white;"
+
+    st.markdown(
+        f"""
+        <table style="{table_style}">
+            <tr style="{table_row_style}">
                 <th>Number of alerts today</th>
                 <td>{alerts_today}</td>
             </tr>
-            <tr>
+            <tr style="{table_row_style}">
                 <th>Total calls this week</th>
                 <td>{calls_this_week}</td>
             </tr>
         </table>
-        """
+        """,
+        unsafe_allow_html=True,
+    )
+    st.subheader("Hourly Metrics")
 
-    # Display the table
-    st.write(table_html, unsafe_allow_html=True)
-    daily_calls_per_hour, max_calls_in_an_hour = fetch_hourly_call_data(conn)
-    st.write(f"Daily calls per hour: {daily_calls_per_hour}")
-    st.write(f"Max calls in an hour: {max_calls_in_an_hour}")
+    # Generate the line plot for Daily Calls Per Hour
+    daily_calls_per_hour = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    hours = np.arange(24)
+
+    plt.plot(hours, daily_calls_per_hour)
+    plt.xlabel('Hour of the Day')
+    plt.ylabel('Call Counts')
+    plt.title('Daily Calls Per Hour')
+    plt.xticks(hours, [f"{hour + 1:02d}" for hour in hours], fontsize=8)
+    st.pyplot(plt)
+
+    # Display two word clouds below the line plot
+    col1, col2 = st.columns(2)
+
+    # Generate word cloud for the most common words of the day
+    with col1:
+        words_day = preprocess_text(" ".join(
+            [data["conversation_history"] for data in conversation_data]))  # Concatenate conversation_history strings
+        plt = generate_word_cloud(words_day, "Most Common Words of the Day")
+        st.pyplot(plt)
+
+    # Generate word cloud for the most common words of the week
+    with col2:
+        words_week = preprocess_text(" ".join(
+            [data["conversation_history"] for data in conversation_data]))  # Concatenate conversation_history strings
+        plt = generate_word_cloud(words_week, "Most Common Words of the Week")
+        st.pyplot(plt)
 
 elif selected_tab == "Alerts":
     st.header("Alerts")
@@ -173,15 +220,6 @@ elif selected_tab == "Alerts":
 elif selected_tab == "Usage Trends":
     st.header("Usage Trends")
     st.write("Meta information on application users goes here.")
-
-elif selected_tab == "Resources":
-    st.header("Resources")
-    st.markdown(
-        """
-        - [Seniors vs Crime Project](https://www.seniorsvscrime.com/)
-        - [Florida Attorney General - File a Complaint](http://myfloridalegal.com/pages.nsf/Main/60FD9BD8FA71A5B185256CD1005EE5C5)
-        """
-    )
 
 elif selected_tab == "Hot Topics & NLP":
     st.header("Hot Topics & NLP")
@@ -227,7 +265,14 @@ elif selected_tab == "Hot Topics & NLP":
             plt = plot_word_frequency(words)
             st.pyplot(plt)
 
-
+elif selected_tab == "Resources":
+    st.header("Resources")
+    st.markdown(
+        """
+        - [Seniors vs Crime Project](https://www.seniorsvscrime.com/)
+        - [Florida Attorney General - File a Complaint](http://myfloridalegal.com/pages.nsf/Main/60FD9BD8FA71A5B185256CD1005EE5C5)
+        """
+    )
 
 
 
