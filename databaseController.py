@@ -13,30 +13,32 @@ def create_table(conn):
     try:
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS calls (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
                         phone_number TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
                         conversation_history TEXT NOT NULL,
-                        conversation_vector BLOB NOT NULL
+                        conversation_vector BLOB NOT NULL,
+                        communication_type TEXT NOT NULL CHECK (communication_type IN ('call', 'sms')),
+                        PRIMARY KEY (phone_number, timestamp)
                      )''')
     except sqlite3.Error as e:
         print(e)
 
-def update_or_insert_call(conn, phone_number, conversation_history, conversation_vector):
-    sql_update = """UPDATE calls SET conversation_history = ?, conversation_vector = ? WHERE phone_number = ?;"""
-    sql_insert = """INSERT INTO calls(phone_number, conversation_history, conversation_vector) VALUES(?, ?, ?);"""
+def update_or_insert_call(conn, phone_number, timestamp, conversation_history, conversation_vector, communication_type):
+    sql_update = """UPDATE calls SET conversation_history = ?, conversation_vector = ?, communication_type = ? WHERE phone_number = ? AND timestamp = ?;"""
+    sql_insert = """INSERT INTO calls(phone_number, timestamp, conversation_history, conversation_vector, communication_type) VALUES(?, ?, ?, ?, ?);"""
 
     cur = conn.cursor()
 
-    # Update the conversation history if the phone number exists
-    cur.execute(sql_update, (conversation_history, conversation_vector, phone_number))
+    # Update the conversation history if the phone number and timestamp exist
+    cur.execute(sql_update, (conversation_history, conversation_vector, communication_type, phone_number, timestamp))
     conn.commit()
 
     # If no rows were affected, insert a new call entry
     if cur.rowcount == 0:
-        cur.execute(sql_insert, (phone_number, conversation_history, conversation_vector))
+        cur.execute(sql_insert, (phone_number, timestamp, conversation_history, conversation_vector, communication_type))
         conn.commit()
 
-    return cur.lastrowid
+    return (phone_number, timestamp)
 
 def delete_all_calls(conn):
     sql = "DELETE FROM calls;"
