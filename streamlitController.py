@@ -183,21 +183,10 @@ if selected_tab == "Overview":
         """,
         unsafe_allow_html=True,
     )
-    st.subheader("Hourly Metrics")
-
-    # Generate the line plot for Daily Calls Per Hour
-    daily_calls_per_hour = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    hours = np.arange(24)
-
-    plt.plot(hours, daily_calls_per_hour)
-    plt.xlabel('Hour of the Day')
-    plt.ylabel('Call Counts')
-    plt.title('Daily Calls Per Hour')
-    plt.xticks(hours, [f"{hour + 1:02d}" for hour in hours], fontsize=8)
-    st.pyplot(plt)
-
+    st.subheader("NLP Metrics")
     # Display two word clouds below the line plot
     col1, col2 = st.columns(2)
+
 
     # Generate word cloud for the most common words of the day
     with col1:
@@ -219,6 +208,18 @@ elif selected_tab == "Alerts":
 
 elif selected_tab == "Usage Trends":
     st.header("Usage Trends")
+    st.subheader("Hourly Metrics")
+
+    # Generate the line plot for Daily Calls Per Hour
+    daily_calls_per_hour = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    hours = np.arange(24)
+
+    plt.plot(hours, daily_calls_per_hour)
+    plt.xlabel('Hour of the Day')
+    plt.ylabel('Call Counts')
+    plt.title('Daily Calls Per Hour')
+    plt.xticks(hours, [f"{hour + 1:02d}" for hour in hours], fontsize=8)
+    st.pyplot(plt)
     st.write("Meta information on application users goes here.")
 
 elif selected_tab == "Hot Topics & NLP":
