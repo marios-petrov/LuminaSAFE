@@ -22,6 +22,12 @@ Necessary Packages
 - flask
 - twillio
 
+Paid APIs
+
+- openAI
+- twillio
+- sql(if sqlite3 doesn't suffice)
+
 How to Use
 
 1. If you're ever in a situation where you want to know whether or not you've been scammed, simply call or text "PHONE NUMBER" to speak with Lumina, or send a picture of that fishy letter to lumina via text.
@@ -44,4 +50,4 @@ Running your own LuminaSAFE
 
 Testing
 
-Once you have the application up and running, you can test each file uplod function/widget for the two different modes (Summarizer,Text Processor) with the provided test document. The document can be found in the repository, and it's titled "TEST_DOCUMENT". The RawText input functions/widgets can be tested by just copy and pasting the text contents of the provided document. Lastly the "wikiURL" input type can simply be tested by providing a valid Wikipedia link.
+
