@@ -136,7 +136,7 @@ with title_column:
     )
 
 # Tabs
-tabs = ["Overview", "Alerts", "Usage Trends", "Hot Topics & NLP", "Resources"]
+tabs = ["Overview", "Usage Trends", "Hot Topics & NLP", "Resources and README"]
 selected_tab = st.session_state.get("selected_tab", "Overview")
 
 # Add empty columns on both sides of the buttons/tabs to center them
@@ -202,10 +202,6 @@ if selected_tab == "Overview":
         plt = generate_word_cloud(words_week, "Most Common Words of the Week")
         st.pyplot(plt)
 
-elif selected_tab == "Alerts":
-    st.header("Alerts")
-    st.write("Metrics and alerts related to the dataset go here.")
-
 elif selected_tab == "Usage Trends":
     st.header("Usage Trends")
     st.subheader("Hourly Metrics")
@@ -266,14 +262,21 @@ elif selected_tab == "Hot Topics & NLP":
             plt = plot_word_frequency(words)
             st.pyplot(plt)
 
-elif selected_tab == "Resources":
+
+elif selected_tab == "Resources and README":
     st.header("Resources")
     st.markdown(
         """
         - [Seniors vs Crime Project](https://www.seniorsvscrime.com/)
+
         - [Florida Attorney General - File a Complaint](http://myfloridalegal.com/pages.nsf/Main/60FD9BD8FA71A5B185256CD1005EE5C5)
+
+        - [Github](https://github.com/marios-petrov/LuminaSAFE)
+
         """
     )
+    st.header("README")
+    st.markdown("Some content for README")
 
 
 
