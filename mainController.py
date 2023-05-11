@@ -3,10 +3,11 @@ from twilio.twiml.voice_response import VoiceResponse, Gather
 from twilio.rest import Client
 from gptController import call_chatgpt_api, summarize_text, get_text_embedding
 from databaseController import create_connection, create_table, update_or_insert_call
+from datetime import datetime
 
 # Set your Twilio API credentials and phone number
 TWILIO_ACCOUNT_SID = "AC66723cf4a1d3e771fa1ed1419f3cd4a3"
-TWILIO_AUTH_TOKEN = "508fe477e35249cd1b4c5321b51f1ec1"
+TWILIO_AUTH_TOKEN = "daf85e728bef997872284255154d4680"
 TWILIO_PHONE_NUMBER = "+1-844-779-2582"
 
 # Initialize the Twilio client
@@ -36,6 +37,7 @@ def answer_call():
 
     return Response(str(response), content_type='text/xml')
 
+
 @app.route('/sms', methods=['POST'])
 def sms_process():
     body = request.values.get('Body', None)
@@ -46,6 +48,7 @@ def sms_process():
 
         total_tokens = len(conversation_history) + len(body)
         if total_tokens > TOKEN_LIMIT:
+
             # Summarize to shorten
             conversation_history = summarize_text(conversation_history)
 
@@ -56,13 +59,12 @@ def sms_process():
 
         conversation_vector = get_text_embedding(updated_conversation_history)
 
-        update_or_insert_call(connection, from_number, updated_conversation_history, conversation_vector.tobytes())
+        update_or_insert_call(connection, from_number, updated_conversation_history, conversation_vector.tobytes(), conversation_vector, "sms")
 
         twilio_client.messages.create(
             body=chatgpt_response,
             from_=TWILIO_PHONE_NUMBER,
-            to=from_number
-        )
+            to=from_number)
 
     return Response(status=200)
     # print all values
@@ -76,23 +78,20 @@ def process_speech():
     if user_speech and from_number:
         conversation_history = conversations.get(from_number, "")
 
-        # Check if the conversation_history plus the new user input exceed the token limit
         total_tokens = len(conversation_history) + len(user_speech)
         if total_tokens > TOKEN_LIMIT:
-            # Summarize the conversation history if it's too long
             conversation_history = summarize_text(conversation_history)
 
         chatgpt_response = call_chatgpt_api(user_speech, conversations.get(from_number, ""))
 
-        # Update the conversation history for the user
         updated_conversation_history = f"{conversation_history}\nUser: {user_speech}\nAI: {chatgpt_response}"
         conversations[from_number] = updated_conversation_history
 
-        # Get the text embedding of the conversation history
         conversation_vector = get_text_embedding(updated_conversation_history)
 
-        # Update the call data in the database
-        update_or_insert_call(connection, from_number, updated_conversation_history, conversation_vector.tobytes())
+        current_timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        update_or_insert_call(connection, from_number, current_timestamp, updated_conversation_history,
+                              conversation_vector.tobytes(), 'call')
 
         response.say(chatgpt_response)
         response.redirect('/answer')
