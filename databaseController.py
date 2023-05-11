@@ -1,4 +1,3 @@
-from sqlite3 import Error
 import sqlite3
 
 def create_connection(db_file):
@@ -21,7 +20,7 @@ def create_table(conn):
                         PRIMARY KEY (phone_number, timestamp)
                      )''')
     except sqlite3.Error as e:
-        print(e)
+        print(f"Error creating table: {e}")
 
 def update_or_insert_call(conn, phone_number, timestamp, conversation_history, conversation_vector, communication_type):
     sql_update = """UPDATE calls SET conversation_history = ?, conversation_vector = ?, communication_type = ? WHERE phone_number = ? AND timestamp = ?;"""
@@ -39,6 +38,16 @@ def update_or_insert_call(conn, phone_number, timestamp, conversation_history, c
         conn.commit()
 
     return (phone_number, timestamp)
+
+def get_conversation_data(conn, phone_number):
+    sql = """SELECT conversation_history, conversation_vector, communication_type FROM calls WHERE phone_number = ? ORDER BY timestamp DESC LIMIT 1;"""
+    cur = conn.cursor()
+    cur.execute(sql, (phone_number,))
+    row = cur.fetchone()
+    if row:
+        return row[0], row[1], row[2]
+    else:
+        return None, None, None
 
 def delete_all_calls(conn):
     sql = "DELETE FROM calls;"
