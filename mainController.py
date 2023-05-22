@@ -4,11 +4,7 @@ from twilio.rest import Client
 from gptController import call_chatgpt_api, summarize_text, get_text_embedding
 from databaseController import create_connection, create_table, update_or_insert_call
 from datetime import datetime
-
-# Set your Twilio API credentials and phone number
-TWILIO_ACCOUNT_SID = "AC66723cf4a1d3e771fa1ed1419f3cd4a3"
-TWILIO_AUTH_TOKEN = "daf85e728bef997872284255154d4680"
-TWILIO_PHONE_NUMBER = "+1-844-779-2582"
+from apiKeys import TWILIO_PHONE_NUMBER, TWILIO_AUTH_TOKEN, TWILIO_ACCOUNT_SID
 
 # Initialize the Twilio client
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
@@ -20,22 +16,29 @@ if connection is not None:
 
 # Set the token limit for your specific GPT model (e.g., text-davinci-002 has a 4096 token limit)
 TOKEN_LIMIT = 4096
-
 conversations = {}
 
 app = Flask(__name__)
 
 @app.route('/answer', methods=['POST'])
 def answer_call():
-    response = VoiceResponse()
+    from_number = request.values.get('From', None)
+    conversation_history = conversations.get(from_number, "")
 
-    gather = Gather(input='speech', action='/process_speech', hints='yes, no, maybe')
-    gather.say("Please speak your message.")
-    response.append(gather)
+    if not conversation_history:
+        response = VoiceResponse()
+        gather = Gather(input='speech', action='/process_speech', hints='yes, no, maybe')
+        gather.say("Hi I'm Lumina, How can I help you today?")
+        response.append(gather)
+    else:
+        response = VoiceResponse()
+        gather = Gather(input='speech', action='/process_speech', hints='yes, no, maybe')
+        response.append(gather)
 
     response.redirect('/answer')
 
     return Response(str(response), content_type='text/xml')
+
 
 
 @app.route('/sms', methods=['POST'])
@@ -48,7 +51,6 @@ def sms_process():
 
         total_tokens = len(conversation_history) + len(body)
         if total_tokens > TOKEN_LIMIT:
-
             # Summarize to shorten
             conversation_history = summarize_text(conversation_history)
 
@@ -59,7 +61,7 @@ def sms_process():
 
         conversation_vector = get_text_embedding(updated_conversation_history)
 
-        update_or_insert_call(connection, from_number, updated_conversation_history, conversation_vector.tobytes(), conversation_vector, "sms")
+        update_or_insert_call(connection, from_number, datetime.utcnow(), updated_conversation_history, conversation_vector.tobytes(), "sms")
 
         twilio_client.messages.create(
             body=chatgpt_response,
@@ -67,7 +69,7 @@ def sms_process():
             to=from_number)
 
     return Response(status=200)
-    # print all values
+
 
 @app.route('/process_speech', methods=['POST'])
 def process_speech():
@@ -76,25 +78,26 @@ def process_speech():
     from_number = request.values.get('From', None)
 
     if user_speech and from_number:
-        conversation_history = conversations.get(from_number, "")
+        with create_connection("phone_calls.db") as connection:
+            conversation_history = conversations.get(from_number, "")
 
-        total_tokens = len(conversation_history) + len(user_speech)
-        if total_tokens > TOKEN_LIMIT:
-            conversation_history = summarize_text(conversation_history)
+            total_tokens = len(conversation_history) + len(user_speech)
+            if total_tokens > TOKEN_LIMIT:
+                conversation_history = summarize_text(conversation_history)
 
-        chatgpt_response = call_chatgpt_api(user_speech, conversations.get(from_number, ""))
+            chatgpt_response = call_chatgpt_api(user_speech, conversations.get(from_number, ""))
 
-        updated_conversation_history = f"{conversation_history}\nUser: {user_speech}\nAI: {chatgpt_response}"
-        conversations[from_number] = updated_conversation_history
+            updated_conversation_history = f"{conversation_history}\nUser: {user_speech}\nAI: {chatgpt_response}"
+            conversations[from_number] = updated_conversation_history
 
-        conversation_vector = get_text_embedding(updated_conversation_history)
+            conversation_vector = get_text_embedding(updated_conversation_history)
 
-        current_timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        update_or_insert_call(connection, from_number, current_timestamp, updated_conversation_history,
-                              conversation_vector.tobytes(), 'call')
+            current_timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            update_or_insert_call(connection, from_number, current_timestamp, updated_conversation_history,
+                                  conversation_vector.tobytes(), 'call')
 
-        response.say(chatgpt_response)
-        response.redirect('/answer')
+            response.say(chatgpt_response)
+            response.redirect('/answer')
     else:
         response.say("I couldn't understand your input, please try again.")
         response.redirect('/answer')
