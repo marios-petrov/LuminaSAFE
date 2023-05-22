@@ -3,12 +3,51 @@ import sqlite3
 import re
 import matplotlib.pyplot as plt
 import numpy as np
-import nltk
 import datetime
+import random
+import folium
+from folium.plugins import HeatMap
+from streamlit_folium import folium_static
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 from collections import Counter
 from wordcloud import WordCloud
+
+DATABASE_NAME = "phone_calls.db"
+conn = sqlite3.connect(DATABASE_NAME, check_same_thread=False)
+
+area_codes = [
+    "201", "202", "203", "205", "206", "207", "208", "209", "210", "212",
+    "213", "214", "215", "216", "217", "218", "219", "224", "225", "228",
+    "229", "231", "234", "239", "240", "248", "251", "252", "253", "254",
+    "256", "260", "262", "267", "269", "270", "272", "276", "281", "301",
+    "302", "303", "304", "305", "307", "308", "309", "310", "312", "313",
+    "314", "315", "316", "317", "318", "319", "320", "321", "323", "325",
+    "330", "331", "334", "336", "337", "339", "346", "347", "351", "352",
+    "360", "361", "385", "386", "401", "402", "404", "405", "406", "407",
+    "408", "409", "410", "412", "413", "414", "415", "417", "419", "423",
+    "424", "425", "430", "432", "434", "435", "440", "442", "443", "469",
+    "470", "475", "478", "479", "480", "484", "501", "502", "503", "504",
+    "505", "507", "508", "509", "510", "512", "513", "515", "516", "517",
+    "518", "520", "530", "531", "534", "539", "540", "541", "551", "559",
+    "561", "562", "563", "567", "570", "571", "573", "574", "575", "580",
+    "585", "586", "601", "602", "603", "605", "606", "607", "608", "609",
+    "610", "612", "614", "615", "616", "617", "618", "619", "620", "623",
+    "626", "628", "629", "630", "631", "636", "641", "646", "650", "651",
+    "660", "661", "662", "667", "669", "678", "681", "682", "684", "701",
+    "702", "703", "704", "706", "707", "708", "712", "713", "714", "715",
+    "716", "717", "718", "719", "720", "724", "727", "731", "732", "734",
+    "737", "740", "747", "754", "757", "760", "762", "763", "765", "769",
+    "770", "772", "773", "774", "775", "779", "781", "785", "786", "801",
+    "802", "803", "804", "805", "806", "808", "810", "812", "813", "814",
+    "815", "816", "817", "818", "828", "830", "831", "832", "843", "845",
+    "847", "848", "850", "856", "857", "858", "859", "860", "862", "863",
+    "864", "865", "870", "872", "878", "901", "903", "904", "906", "907",
+    "908", "909", "910", "912", "913", "914", "915", "916", "917", "918",
+    "919", "920", "925", "928", "931", "936", "937", "938", "940", "941",
+    "947", "949", "951", "952", "954", "956", "959", "970", "971", "972",
+    "973", "978", "979", "980", "984", "985", "989"
+]
 
 # Connecting to the database
 def fetch_conversation_data(conn):
@@ -16,36 +55,46 @@ def fetch_conversation_data(conn):
 
     try:
         c = conn.cursor()
-        c.execute("SELECT id, phone_number, conversation_history FROM calls")
+        c.execute("SELECT DISTINCT phone_number FROM calls")
 
-        rows = c.fetchall()
-        for row in rows:
-            conversation_data.append({"id": row[0], "phone_number": row[1], "conversation_history": row[2]})
+        phone_numbers = c.fetchall()
+        for phone_number in phone_numbers:
+            c.execute("SELECT conversation_history FROM calls WHERE phone_number = ? ORDER BY timestamp DESC LIMIT 1", phone_number)
+            conversation_history = c.fetchone()[0]
+            conversation_data.append({"phone_number": phone_number[0], "conversation_history": conversation_history})
 
     except sqlite3.Error as e:
         print(e)
 
     return conversation_data
 
+
+conversation_data = fetch_conversation_data(conn)
+
 def fetch_call_statistics(conn):
     today = datetime.date.today()
     one_week_ago = today - datetime.timedelta(days=7)
 
+    # Convert dates to strings in the format 'YYYY-MM-DD'
+    today_str = today.strftime('%Y-%m-%d')
+    one_week_ago_str = one_week_ago.strftime('%Y-%m-%d')
+
     c = conn.cursor()
 
     # Get the number of alerts today
-    c.execute("SELECT COUNT(*) FROM calls WHERE date(conversation_history) = ?", (today,))
+    c.execute("SELECT COUNT(*) FROM calls WHERE date(timestamp) = ?", (today_str,))
     alerts_today = c.fetchone()[0]
 
     # Get the total calls this week
-    c.execute("SELECT COUNT(*) FROM calls WHERE date(conversation_history) BETWEEN ? AND ?", (one_week_ago, today))
+    c.execute("SELECT COUNT(DISTINCT phone_number) FROM calls WHERE date(timestamp) BETWEEN ? AND ?", (one_week_ago_str, today_str))
     calls_this_week = c.fetchone()[0]
 
     return alerts_today, calls_this_week
 
+
 def fetch_hourly_call_data(conn):
     c = conn.cursor()
-    c.execute("SELECT strftime('%H', conversation_history) AS hour, COUNT(*) AS count FROM calls GROUP BY hour")
+    c.execute("SELECT strftime('%H', timestamp) AS hour, COUNT(*) AS count FROM calls GROUP BY hour")
     hourly_call_data = c.fetchall()
 
     daily_calls_per_hour = [0] * 24
@@ -58,10 +107,6 @@ def fetch_hourly_call_data(conn):
             max_calls_in_an_hour = max(max_calls_in_an_hour, count)
 
     return daily_calls_per_hour, max_calls_in_an_hour
-
-DATABASE_NAME = "phone_calls.db"
-conn = sqlite3.connect(DATABASE_NAME, check_same_thread=False)
-conversation_data = fetch_conversation_data(conn)
 
 def preprocess_text(text):
     # Lowercase the text
@@ -118,6 +163,12 @@ def plot_word_frequency(words, top_n=10):
     plt.xticks(index, words, fontsize=10, rotation=30)
     return plt
 
+def decode_if_bytes(text):
+    # If text is a bytes object, decode it to a string
+    if isinstance(text, bytes):
+        return text.decode('utf-8')  # or use 'latin-1' or 'iso-8859-1' if 'utf-8' doesn't work
+    return text
+
 def generate_word_cloud(words, title):
     wordcloud = WordCloud(width=800, height=400, background_color="white").generate(" ".join(words))
     plt.figure(figsize=(10, 5))
@@ -128,31 +179,13 @@ def generate_word_cloud(words, title):
 
 # Page/Title Setup
 st.set_page_config(page_title="LuminaSAFE", layout="wide")
-left_column, title_column, right_column = st.columns([1, 4, 1])
-with title_column:
-    st.markdown(
-        "<h1 style='text-align: center; font-size: 60px; margin-top: -40px;'>LuminaSAFE</h1>",
-        unsafe_allow_html=True,
-    )
+st.title("LuminaSAFE")
 
-# Tabs
-tabs = ["Overview", "Usage Trends", "Hot Topics & NLP", "Resources and README"]
-selected_tab = st.session_state.get("selected_tab", "Overview")
+# Display content based on the selected button
+selected_button = st.sidebar.radio("Navigation", ["Overview", "Usage Trends", "Hot Topics & NLP", "Resources and README"])
 
-# Add empty columns on both sides of the buttons/tabs to center them
-left_space, *columns, right_space = st.columns([1] + [2]*len(tabs) + [1])
-button_style = "style='width: 100%; height: 50px; margin-bottom: 10px;'"
-
-for i, tab in enumerate(tabs):
-    with columns[i]:
-        if st.button(tab, key=f"tab_button_{i}"):
-            selected_tab = tab
-            st.session_state.selected_tab = selected_tab
-
-st.write("\n")
-
-# Display content based on the selected tab
-if selected_tab == "Overview":
+# Overview page
+if selected_button == "Overview":
     st.header("Overview")
 
     # Calculate the total number of calls
@@ -202,23 +235,51 @@ if selected_tab == "Overview":
         plt = generate_word_cloud(words_week, "Most Common Words of the Week")
         st.pyplot(plt)
 
-elif selected_tab == "Usage Trends":
+# Usage Trends page
+elif selected_button == "Usage Trends":
     st.header("Usage Trends")
-    st.subheader("Hourly Metrics")
 
-    # Generate the line plot for Daily Calls Per Hour
-    daily_calls_per_hour = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    # Create synthetic data for the hourly metric
     hours = np.arange(24)
+    hourly_data = [random.randint(50, 200) + random.randint(-50, 50) for _ in hours]
 
-    plt.plot(hours, daily_calls_per_hour)
-    plt.xlabel('Hour of the Day')
-    plt.ylabel('Call Counts')
-    plt.title('Daily Calls Per Hour')
-    plt.xticks(hours, [f"{hour + 1:02d}" for hour in hours], fontsize=8)
-    st.pyplot(plt)
-    st.write("Meta information on application users goes here.")
+    # Create two columns to display the figures side by side
+    col1, col2 = st.columns(2)
 
-elif selected_tab == "Hot Topics & NLP":
+    with col1:
+        st.subheader("Hourly Metrics")
+
+        plt.figure(figsize=(7, 5))  # Adjust the figure size as desired
+        plt.plot(hours, hourly_data)
+        plt.xlabel('Hour of the Day')
+        plt.ylabel('Call Counts')
+        plt.title('Dynamic Hourly Metrics')
+        plt.xticks(hours, [f"{hour + 1:02d}" for hour in hours], fontsize=8)
+        st.pyplot(plt)
+
+    with col2:
+        st.subheader("Caller/Texter Origin Heatmap")
+
+        m = folium.Map(location=[39.8283, -98.5795], zoom_start=4)  # Centered around the United States
+
+        # Generate synthetic data or use a larger dataset to populate the heatmap across the country
+        heatmap_data = []
+        num_points = 24  # Adjust the number of points as desired
+
+        for _ in range(num_points):
+            lat = np.random.uniform(24, 50)  # Latitude range across the continental United States
+            lon = np.random.uniform(-125, -66)  # Longitude range across the continental United States
+            weight = np.random.randint(1, 10)  # Adjust weight as desired
+            heatmap_data.append([lat, lon, weight])
+
+        # Add the heatmap layer to the map
+        HeatMap(heatmap_data, radius=10).add_to(m)  # Adjust radius as desired for smaller points
+
+        # Display the map in Streamlit
+        folium_static(m, width=700, height=515)  # Adjust width and height as desired
+
+# Hot Topics & NLP page
+elif selected_button == "Hot Topics & NLP":
     st.header("Hot Topics & NLP")
 
     # Display a list of phone numbers with associated conversation histories
@@ -262,8 +323,8 @@ elif selected_tab == "Hot Topics & NLP":
             plt = plot_word_frequency(words)
             st.pyplot(plt)
 
-
-elif selected_tab == "Resources and README":
+# Resources and README page
+elif selected_button == "Resources and README":
     st.header("Resources")
     st.markdown(
         """
@@ -271,7 +332,7 @@ elif selected_tab == "Resources and README":
 
         - [Florida Attorney General - File a Complaint](http://myfloridalegal.com/pages.nsf/Main/60FD9BD8FA71A5B185256CD1005EE5C5)
 
-        - [Github](https://github.com/marios-petrov/LuminaSAFE)
+        - [Github] 
 
         """
     )
