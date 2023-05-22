@@ -3,7 +3,7 @@ from sentence_transformers import SentenceTransformer
 import openai
 from apiKeys import openai_key
 
-openai.api_key = openai_key
+# openai.api_key = openai_key
 
 # Load the T5 model for summarization
 t5_tokenizer = T5Tokenizer.from_pretrained('t5-small')
